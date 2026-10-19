@@ -1,45 +1,67 @@
+import json
 import os
 from urllib.parse import quote_plus
 from core import tool_registry
 from dotenv import load_dotenv
 from google import genai
 
+
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
-
-
 
 
 def understand_command(command):
     response = client.models.generate_content(
     model="gemini-3.6-flash",
     contents=f"""
-    You are JARVIS, an AI command interpreter.
+    You are JARVIS, an AI command interpreter. Your job is to convert the user's command into a JSON object that selects one available tool and provides its target.
 
-Your job is to understand what the user wants and decide which available tool should handle the request.
+AVAILABLE TOOLS:
 
-Available tools:
-- opening: opens a website or URL
-- searching: searches the web using Google
+1. "opening": Opens a specific website or URL in the browser.
+2. "searching": Searches Google for information using the user's search query.
 
-Rules:
-1. Understand natural language. The user does not have to use exact commands.
-2. If the user wants to open or visit a website, choose "opening".
-3. If the user wants to search for information, choose "searching".
-4. For an opening request, determine the correct website URL when you know it.
-5. For a search request, return the user's search query as the target.
-6. Do not perform the action yourself. Only decide which tool JARVIS should use.
-7. Return ONLY this format:
+RULES:
 
-tool: <tool name>
-target: <target>
+1. Understand the user's intent from natural language. The user does not need to use exact keywords.
+2. If the user explicitly asks to open, visit, launch in browser, or go to a website, ALWAYS choose "opening".
+3. If the user asks to search for, find information about, or look up something, choose "searching".
+4. Never choose "searching" when the user explicitly asks to open a website.
+5. For a website-opening request, identify the exact website from the user's words and return its correct official URL.
+6. Use these website mappings:
+   - YouTube → https://www.youtube.com
+   - Facebook → https://www.facebook.com
+7. If the user provides a complete URL, use that URL as the target when they ask to open it.
+8. For a search request, set the target to the user's actual search query, not the word "search" or the name "JARVIS" unless that is what they genuinely want to search for.
+9. Do not invent a different website or change the user's intended target.
+10. If the user's intent or target is unclear, choose "searching" with the original command as the target rather than guessing a website.
+11. Return ONLY a valid JSON object containing exactly two string keys: "tool" and "target".
+12. Do not include Markdown fences, explanations, or any text outside the JSON object.
+
+EXAMPLES:
+
+User: open YouTube
+Output: {{"tool": "opening", "target": "https://www.youtube.com"}}
+
+User: Can you open Facebook for me?
+Output: {{"tool": "opening", "target": "https://www.facebook.com"}}
+
+User: go to GitHub
+Output: {{"tool": "opening", "target": "https://github.com"}}
+
+User: search JARVIS
+Output: {{"tool": "searching", "target": "JARVIS"}}
+
+User: find Python machine learning tutorials
+Output: {{"tool": "searching", "target": "Python machine learning tutorials"}}
+
+User: open https://www.python.org
+Output: {{"tool": "opening", "target": "https://www.python.org"}}
 
 User command: {command}"""
     )
     return (response.text)
-
-
 
 
 
@@ -59,35 +81,28 @@ while True:
         continue
 
 
-    result = understand_command(command) 
-    result_lines = result.splitlines()
-
-    if len(result_lines) != 2:
-        print("JARVIS: Invalid response from Gemini.")
+    try:
+        result = json.loads(understand_command(command))
+    except json.JSONDecodeError:
+        print("JARVIS: Something Went Wrong!")
         continue
 
-    if not result_lines[0].startswith("tool:"):
-        print("JARVIS: Invalid response from Gemini.")
+    tool = result["tool"]
+    target = result["target"]
+
+    if not tool_registry.TOOL_REGISTRY.get(tool):
+        print("Something Went Wrong, Please Try Again..")
         continue
 
-    if not result_lines[1].startswith("target:"):
-        print("JARVIS: Invalid response from Gemini.")
+    if not target:
+        print("Something Went Wrong, Please Try Again..")
         continue
-         
 
-    result_l1 = result_lines[0].split(":")
-    result_l2 = result_lines[1].split(":",1)
-    tool = result_l1[1].strip()
-    target = result_l2[1].strip()
-
-        
-
-    
     print(f"{tool} {target} ...")
     tool_function = tool_registry.TOOL_REGISTRY.get(tool)
 
     if tool_function:
         tool_function(target)
     else:
-        print("Something Went Wrong!")
+        print("JARVIS: Something Went Wrong!")
 
