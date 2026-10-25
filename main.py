@@ -21,6 +21,7 @@ AVAILABLE TOOLS:
 
 1. "opening": Opens a specific website or URL in the browser.
 2. "searching": Searches Google for information using the user's search query.
+3. "application": Opens a desktop application on the user's Windows computer.
 
 RULES:
 
@@ -38,6 +39,7 @@ RULES:
 10. If the user's intent or target is unclear, choose "searching" with the original command as the target rather than guessing a website.
 11. Return ONLY a valid JSON object containing exactly two string keys: "tool" and "target".
 12. Do not include Markdown fences, explanations, or any text outside the JSON object.
+13. If the user asks to open, launch, or start a desktop application, choose "application" and return the application's display name as the target.
 
 EXAMPLES:
 
@@ -58,6 +60,15 @@ Output: {{"tool": "searching", "target": "Python machine learning tutorials"}}
 
 User: open https://www.python.org
 Output: {{"tool": "opening", "target": "https://www.python.org"}}
+
+User: open Notepad
+Output: {{"tool": "application", "target": "notepad"}}
+
+User: open Calculator
+Output: {{"tool": "application", "target": "Calculator"}}
+
+User: open Visual Studio Code
+Output: {{"tool": "application", "target": "Visual Studio Code"}}
 
 User command: {command}"""
     )
